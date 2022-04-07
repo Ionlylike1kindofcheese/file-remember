@@ -4,111 +4,149 @@ import os.path
 import tkinter as tk
 from functools import partial
 import random
-from tkinter.messagebox import askyesno, showinfo
+from tkinter.messagebox import askyesno, showerror, showinfo
+from threading import Condition
 
+# window creation
 window = tk.Tk()
 window.geometry("1000x500")
 window.resizable(False, False)
 window.config(bg="blue")
 window.title("FPS Trainer V1")
 
+# global variables
 timer = 20
 points = 0
+name = None
 bindingList = ["<w>", "<a>", "<s>", "<d>", "<space>", "<Button-1>", "<Double-Button-1>", "<Triple-Button-1>"]
 printTask = ["press: w", "press: a", "press: s", "press: d", "press: space", "Single click", "Double click", "Triple click", ]
+file_path = 'highscores.json'
 highscoresDict = None
 
+# resposible for destroying menu and activating components  /
 def startupGame(startButton):
     startButton.destroy()
     window.config(bg="gray")
     labelScore.after(1000, time)
     runGame()
 
-
+# Sends chosen random number for button creation  /
 def runGame():
     chosenTaskposition = random.randrange(0,8)
     createButton(chosenTaskposition)
 
-
-
+# responsible for keeping track of time and updating the label  /
 def time():
     global timer
     timer -= 1
     labelScore.config(text=("Time remaining: " + str(timer) + "                                                                                                         " + "Points: " + str(points)), font=("arial", 12))
     if timer == 0:
-        window.after(2000, popupMSG)
+        window.after(2000, scoreIsHighscore)
     else:
         labelScore.after(1000, time)
 
+# responsible for checking if score is highscore  !
+def scoreIsHighscore():
+    highscoresCreation()
+    with open(file_path, 'r') as file:
+        data = json.load(file)
+        if len(data) == 0:
+            print("First time!!!")
+            scoreName()
+        else:
+            values = list(data.values())
+            print(values)
+    # popupMSG()
 
+# creates button, binds and positions button  /
 def createButton(position):
     if timer > 0:
         xCord = random.randrange(50,950)
         yCord = random.randrange(100,450)
         button = tk.Button()
         button.config(text=printTask[position])
-        button.pack(ipadx=10, ipady=10)
         button.place(x=xCord,y=yCord)
         if position <= 5:
             window.bind(bindingList[position], partial(PressedClicked, position, button))
         else:
             button.bind(bindingList[position], partial(PressedClicked, position, button))
 
-
+# responsible for setting name to highscore  /
 def scoreName():
+    global scoreLabel
+    global entryScore
+    global scoreButton
+    parameter = False
     showinfo(title= "New highscore!!!", message= "U heeft een highscore behaald! Vul a.u.b een naam in voor de score")
     scoreLabel = tk.Label(bg='gray', text="Vul hier naam in:", font=("arial", 18))
     scoreLabel.place(x=400, y=250)
-    entryScore = tk.Entry()
+    entryScore = tk.Entry(width=20)
     entryScore.place(x=400, y=280)
-    scoreButton = tk.Button(text="Invullen", command=scoreButtoncheck)
-    scoreButton.place(x=500, y=280)
-    print("waiting...")
-    scoreButton.wait_variable()
-    print("done waiting.")
+    with open(file_path, 'r') as file:
+        data = json.load(file)
+        if len(data) == 0:
+            parameter = True
+    scoreButton = tk.Button(text="Invullen")
+    scoreButton.bind('<Button-1>', partial(scoreButtoncheck, parameter))
+    scoreButton.place(x=530, y=280)
 
+# Checking if entry is alpha and first time add dict item firsttime  !
+def scoreButtoncheck(firsttime, self):
+    global scoreLabel
+    global entryScore
+    global scoreButton
+    checkingvar = entryScore.get()
+    if checkingvar.isalpha() == True:
+        global name
+        name = checkingvar
+        scoreLabel.destroy()
+        entryScore.destroy()
+        scoreButton.destroy()
+        if firsttime == True:
+            with open(file_path, 'w') as file:
+                highscoresDict = {}
+                highscoresDict[name] = points
+                encodedStr = json.dumps(highscoresDict)
+                file.write(encodedStr)
+        popupMSG()        
+    else:
+        showerror(title="Alleen alphabetische letters!!!", message="Alleen letters zijn toegestaan!")    
 
-def scoreButtoncheck():
-    ...
-
-
+# responsible for rerunning the program and reseting values to their original state  /
 def popupMSG():
     global timer
     global points
-    scoreName()
+    global name
     anwser = askyesno(title="Game over", message=("Wilt u opnieuw spelen?"))
     if anwser == False:
         window.destroy()
     elif anwser == True:
-        highscores()
         window.config(bg="blue")
         timer = 20
         points = 0
+        name = None
         labelScore.config(bg="black", fg="white", text=("Time remaining: " + str(timer) + "                                                                                                         " + "Points: " + str(points)), font=("arial", 12))
         startButton = tk.Button()
         startButton.config(text="Click here to start", command=partial(startupGame, startButton))
         startButton.pack(ipadx=50, ipady=10, expand=True)
 
-
-def highscores():
-    global points
+# creates file and creates dictionary in file  /
+def highscoresCreation():
     global highscoresDict
-    file_path = 'highscores.json'
-    if points > 0:
-        if os.path.exists(file_path) == False:
-            with open(file_path, 'x') as file:
-                print('file created')
-        if os.stat(file_path).st_size == 0:
-            highscoresDict = {}
-            ...
-            data = json.dumps(highscoresDict)
-            with open(file_path, 'w') as file:
-                file.write(data)
-        else:
-            print("File exists")
+    if os.path.exists(file_path) == False:
+        with open(file_path, 'x') as file:
+            print('file created')
+    if os.stat(file_path).st_size == 0:
+        highscoresDict = {}
+        data = json.dumps(highscoresDict)
+        with open(file_path, 'w') as file:
+            file.write(data)
+            print('dictionary created')
+    else:
+        print("File exists")
 
 
-
+# responsible for unbinding buttons and destroying them after keybind pressed or mouse clicked  /
 def PressedClicked(position, givenButton, self):
     global points
     points += 1
