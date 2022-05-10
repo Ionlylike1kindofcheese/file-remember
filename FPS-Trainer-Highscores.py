@@ -5,7 +5,6 @@ import tkinter as tk
 from functools import partial
 import random
 from tkinter.messagebox import askyesno, showerror, showinfo
-from threading import Condition
 
 # window creation
 window = tk.Tk()
@@ -45,7 +44,7 @@ def time():
     else:
         labelScore.after(1000, time)
 
-# responsible for checking if score is highscore  !
+# responsible for checking if score is highscore  /
 def scoreIsHighscore():
     highscoresCreation()
     with open(file_path, 'r') as file:
@@ -54,9 +53,35 @@ def scoreIsHighscore():
             print("First time!!!")
             scoreName()
         else:
-            values = list(data.values())
-            print(values)
-    # popupMSG()
+            result = dictLengthCheck(data)
+            if result == True:
+                boolResult = dictItemDel(data)
+                if boolResult == True:
+                    scoreName()
+                else:
+                    popupMSG()
+            else:
+                scoreName()
+
+
+# checks wether length dictionary == 10
+def dictLengthCheck(dataDict):
+    return True if len(dataDict) == 10 else False
+
+
+# handles item deletion if dict length == 10
+def dictItemDel(loadedDict):
+    min_value = min(loadedDict.itervalues())
+    remaining = loadedDict.viewkeys() - (k for k, v in loadedDict.iteritems() if v == min_value)
+    if remaining < points:
+        return False
+    else:
+        del loadedDict[remaining]
+        with open(file_path, 'w') as file:
+            encodedStr = json.dumps(loadedDict)
+            file.write(encodedStr)
+        return True
+
 
 # creates button, binds and positions button  /
 def createButton(position):
@@ -73,9 +98,7 @@ def createButton(position):
 
 # responsible for setting name to highscore  /
 def scoreName():
-    global scoreLabel
-    global entryScore
-    global scoreButton
+    global scoreLabel, entryScore, scoreButton
     parameter = False
     showinfo(title= "New highscore!!!", message= "U heeft een highscore behaald! Vul a.u.b een naam in voor de score")
     scoreLabel = tk.Label(bg='gray', text="Vul hier naam in:", font=("arial", 18))
@@ -90,33 +113,36 @@ def scoreName():
     scoreButton.bind('<Button-1>', partial(scoreButtoncheck, parameter))
     scoreButton.place(x=530, y=280)
 
-# Checking if entry is alpha and first time add dict item firsttime  !
+# Checking if entry is alpha and first time add dict item  /
 def scoreButtoncheck(firsttime, self):
-    global scoreLabel
-    global entryScore
-    global scoreButton
+    global scoreLabel, entryScore, scoreButton
     checkingvar = entryScore.get()
     if checkingvar.isalpha() == True:
         global name
+        checkingvar = checkingvar.lower()
         name = checkingvar
         scoreLabel.destroy()
         entryScore.destroy()
         scoreButton.destroy()
+        highscoresDict = {}
         if firsttime == True:
             with open(file_path, 'w') as file:
-                highscoresDict = {}
                 highscoresDict[name] = points
-                encodedStr = json.dumps(highscoresDict)
-                file.write(encodedStr)
+                json.dump(highscoresDict, file)
+        else:
+            with open(file_path, 'r') as file:
+                highscoresDict = json.load(file)
+                highscoresDict[name] = points
+                sortedDict = dict(sorted(highscoresDict.items(), key=lambda item: item[1]))
+            with open(file_path, 'w') as file:
+                json.dump(sortedDict, file)
         popupMSG()        
     else:
         showerror(title="Alleen alphabetische letters!!!", message="Alleen letters zijn toegestaan!")    
 
 # responsible for rerunning the program and reseting values to their original state  /
 def popupMSG():
-    global timer
-    global points
-    global name
+    global timer, points, name
     anwser = askyesno(title="Game over", message=("Wilt u opnieuw spelen?"))
     if anwser == False:
         window.destroy()
@@ -148,15 +174,15 @@ def highscoresCreation():
 
 # responsible for unbinding buttons and destroying them after keybind pressed or mouse clicked  /
 def PressedClicked(position, givenButton, self):
-    global points
+    global points, labelScore
     points += 1
+    labelScore.config(bg="black", fg="white", text=("Time remaining: " + str(timer) + "                                                                                                         " + "Points: " + str(points)), font=("arial", 12))
     if position <= 5:
         window.unbind(bindingList[position])
     else:
         givenButton.unbind(bindingList[position])
     givenButton.destroy()
-    runGame()
-    
+    runGame()   
 
 
 labelScore = tk.Label()
